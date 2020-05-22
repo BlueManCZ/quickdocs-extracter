@@ -5,7 +5,7 @@ exec ros -Q -- $0 "$@"
 |#
 
 ;; Use the local Legion (v0.1.1)
-(load (merge-pathnames #P"../modules/legion/legion.asd" *load-pathname*))
+;(load (merge-pathnames #P"../modules/legion/legion.asd" *load-pathname*))
 (ql:quickload '(:uiop :split-sequence :legion :bordeaux-threads) :silent t)
 
 (import 'split-sequence:split-sequence)
@@ -71,7 +71,7 @@ exec ros -Q -- $0 "$@"
     (let* ((bt:*default-special-bindings* `((*standard-output* . ,*standard-output*)
                                             (*error-output* . ,*error-output*)))
            (failed 0)
-           (cluster (legion:make-cluster *worker-num*
+           #|(cluster (legion:make-cluster *worker-num*
                                          (lambda (worker)
                                            (multiple-value-bind (release existsp)
                                                (legion:next-job worker)
@@ -95,11 +95,22 @@ exec ros -Q -- $0 "$@"
                                                              release
                                                              error-log))))
                                                (fresh-line))))
-                                         :queue-size (1+ (floor (/ (length releases) *worker-num*))))))
+                                         :queue-size (1+ (floor (/ (length releases) *worker-num*)))))|#)
       (dolist (release releases)
-        (legion:add-job cluster release))
-      (legion:start-cluster cluster)
-      (legion:join-worker-threads cluster)
+        ;(legion:add-job cluster release)
+        (format t "~&Extracting ~S...~%" release)
+	(ignore-errors
+	  (uiop:run-program ;`("ros" "~/quicklisp/local-projects/quickdocs-extracter/scripts/extract-release"
+					;,(format nil "~S" release) ,(format nil "~S" ql-dist-version))
+	   `("bash" "-c"
+	     ,(format nil "ros ~~/quicklisp/local-projects/quickdocs-extracter/scripts/extract-release ~S ~S"
+		      release ql-dist-version))
+	   :output (merge-pathnames release releases-dir)
+	   :error-output (merge-pathnames release logs-dir)
+	   :if-output-exists :supersede
+	   :if-error-output-exists :supersede)))
+      ;(legion:start-cluster cluster)
+      ;(legion:join-worker-threads cluster)
 
       (format t "~&~D releases are successfully extracted, and ~D releases are failed.~%"
               (- (length releases) failed)
